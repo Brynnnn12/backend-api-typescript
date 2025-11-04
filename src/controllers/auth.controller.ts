@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
-import { register as registerService, login as loginService } from '../services/auth.service';
+import {
+  register as registerService,
+  login as loginService,
+} from '../services/auth.service';
 import { ApiResponse } from '../utils/apiResponse';
 
 export const register = asyncHandler(async (req: Request, res: Response) => {
