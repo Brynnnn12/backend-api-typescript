@@ -1,0 +1,4 @@
+#!/usr/bin/env sh ini adalah skrip shell yang digunakan sebagai hook pre-commit oleh Husky, sebuah alat yang membantu mengelola hook Git. Skrip ini memastikan bahwa sebelum setiap commit dilakukan, perintah tertentu dijalankan untuk memeriksa atau memformat kode.
+. "$(dirname -- "$0")/_/husky.sh"
+
+npx lint-staged
