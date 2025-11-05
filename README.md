@@ -21,6 +21,9 @@ Backend API yang powerful dan production-ready dibangun dengan Express.js, TypeS
 ## ✨ Fitur
 
 - ✅ **Authentication & Authorization** - JWT-based auth dengan role system
+- ✅ **User Management** - User registration, login, dan role-based access
+- ✅ **Blog System** - Full CRUD blog posts dengan categories
+- ✅ **Category Management** - Organize content dengan categories
 - ✅ **Input Validation** - Zod schema validation untuk semua input
 - ✅ **Database ORM** - Prisma dengan MySQL
 - ✅ **Error Handling** - Centralized error handling middleware
@@ -267,6 +270,88 @@ npm run prisma:generate
 npm run prisma:migrate
 ```
 
+### **6. Database Schema Overview**
+
+Project ini menggunakan **5 main models**:
+
+#### **User Model**
+
+```prisma
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  userRoles UserRole[]
+  blogs     Blog[]
+}
+```
+
+#### **Role Model** (Many-to-Many dengan User)
+
+```prisma
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles   UserRole[]
+}
+
+model UserRole {
+  id     String @id @default(uuid())
+  userId String
+  roleId String
+
+  user   User @relation(fields: [userId], references: [id])
+  role   Role @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId])
+}
+```
+
+#### **Category Model**
+
+```prisma
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique  // Auto-generated dari name
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  blogs       Blog[]
+}
+```
+
+#### **Blog Model**
+
+```prisma
+model Blog {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique  // Auto-generated dari title
+  content     String   @db.Text
+  excerpt     String?  @db.Text
+  published   Boolean  @default(false)
+  publishedAt DateTime?
+  authorId    String
+  categoryId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author      User     @relation(fields: [authorId], references: [id])
+  category    Category @relation(fields: [categoryId], references: [id])
+}
+```
+
 ### **6. (Optional) Seed Database**
 
 Jika ada seed file, jalankan:
@@ -283,6 +368,30 @@ npx prisma db seed
 | ------ | ----------- | ------------------ | ------------- |
 | POST   | `/register` | Register user baru | ❌            |
 | POST   | `/login`    | Login user         | ❌            |
+
+### **Category Routes** (`/api/categories`)
+
+| Method | Endpoint      | Description          | Auth Required |
+| ------ | ------------- | -------------------- | ------------- |
+| GET    | `/`           | Get all categories   | ❌            |
+| GET    | `/:id`        | Get category by ID   | ❌            |
+| GET    | `/slug/:slug` | Get category by slug | ❌            |
+| POST   | `/`           | Create new category  | ✅ (Admin)    |
+| PUT    | `/:id`        | Update category      | ✅ (Admin)    |
+| DELETE | `/:id`        | Delete category      | ✅ (Admin)    |
+
+### **Blog Routes** (`/api/blogs`)
+
+| Method | Endpoint                | Description                     | Auth Required |
+| ------ | ----------------------- | ------------------------------- | ------------- |
+| GET    | `/`                     | Get all blogs (with pagination) | ❌            |
+| GET    | `/:id`                  | Get blog by ID                  | ❌            |
+| GET    | `/slug/:slug`           | Get blog by slug                | ❌            |
+| GET    | `/author/:authorId`     | Get blogs by author             | ❌            |
+| GET    | `/category/:categoryId` | Get blogs by category           | ❌            |
+| POST   | `/`                     | Create new blog                 | ✅            |
+| PUT    | `/:id`                  | Update blog (author only)       | ✅            |
+| DELETE | `/:id`                  | Delete blog (author only)       | ✅            |
 
 ### **Request/Response Examples**
 
@@ -343,6 +452,81 @@ Content-Type: application/json
       "role": "USER"
     },
     "token": "jwt-token-here"
+  }
+}
+```
+
+#### **Create Category** (Admin Only)
+
+```bash
+POST /api/categories
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+
+{
+  "name": "Technology",
+  "description": "Articles about technology and programming"
+}
+```
+
+#### **Create Blog Post**
+
+```bash
+POST /api/blogs
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+
+{
+  "title": "Getting Started with Express.js",
+  "content": "Express.js is a minimal and flexible Node.js web application framework...",
+  "excerpt": "Learn the basics of Express.js framework",
+  "categoryId": "category-uuid",
+  "published": true
+}
+```
+
+#### **Get Blogs with Pagination**
+
+```bash
+GET /api/blogs?page=1&limit=10&category=tech-category-id&published=true
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Blogs retrieved successfully",
+  "data": {
+    "blogs": [
+      {
+        "id": "blog-uuid",
+        "title": "Getting Started with Express.js",
+        "slug": "getting-started-with-express-js",
+        "content": "Express.js content...",
+        "excerpt": "Learn the basics of Express.js framework",
+        "published": true,
+        "publishedAt": "2025-11-04T10:00:00.000Z",
+        "author": {
+          "id": "user-uuid",
+          "name": "John Doe",
+          "email": "john@example.com"
+        },
+        "category": {
+          "id": "category-uuid",
+          "name": "Technology",
+          "slug": "technology"
+        },
+        "createdAt": "2025-11-04T10:00:00.000Z",
+        "updatedAt": "2025-11-04T10:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 25,
+      "pages": 3
+    }
   }
 }
 ```
